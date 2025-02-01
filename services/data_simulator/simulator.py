@@ -55,7 +55,7 @@ def main():
         value_serializer=lambda v: json.dumps(v).encode('utf-8')
     )
     
-     print(f"Starting multi-station data simulation. Kafka at: {bootstrap_servers}")
+    print(f"Starting multi-station data simulation. Kafka at: {bootstrap_servers}")
 
     try:
         while True:
