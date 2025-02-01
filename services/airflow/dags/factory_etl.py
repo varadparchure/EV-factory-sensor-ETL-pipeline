@@ -5,8 +5,32 @@ import json
 import psycopg2
 from kafka import KafkaConsumer
 
+def transform_data(message_value):
+    """
+    Apply simple transformations to the data.
+    This function can be extended as needed.
+    """
+    # For example, ensure numeric fields are rounded and add a processing timestamp.
+    station = message_value.get("station", "unknown")
+
+    if station == "battery":
+        # Round the voltage value to an integer
+        if "voltage" in message_value:
+            message_value["voltage"] = round(message_value["voltage"])
+    elif station == "chassis":
+        # Round the torque to one decimal place
+        if "torque" in message_value:
+            message_value["torque"] = round(message_value["torque"], 1)
+    elif station == "paint":
+        # Round the booth_humidity to an integer
+        if "booth_humidity" in message_value:
+            message_value["booth_humidity"] = round(message_value["booth_humidity"])
+    # Add a new field to indicate when processing occurred.
+    message_value["processed_at"] = datetime.now().isoformat()
+    return message_value
+
 def etl_task():
-    # Create a Kafka consumer that listens to all our topics
+    # Create a Kafka consumer subscribing to multiple topics.
     consumer = KafkaConsumer(
         'chassis_topic', 'battery_topic', 'paint_topic', 'quality_topic',
         bootstrap_servers='kafka:9092',
@@ -16,7 +40,7 @@ def etl_task():
         value_deserializer=lambda x: json.loads(x.decode('utf-8'))
     )
     
-    # Connect to Postgres (using the Docker service name "postgres")
+    # Connect to Postgres (using the Docker service name "postgres").
     conn = psycopg2.connect(
         host="postgres",
         database="factory_db",
@@ -25,7 +49,7 @@ def etl_task():
     )
     cur = conn.cursor()
 
-    # Create a table if it doesn't exist
+    # Create a table if it doesn't exist.
     create_table_query = """
     CREATE TABLE IF NOT EXISTS sensor_data (
         id SERIAL PRIMARY KEY,
@@ -37,12 +61,15 @@ def etl_task():
     cur.execute(create_table_query)
     conn.commit()
 
-    # Process a few messages for demonstration
     messages_processed = 0
+    # Process messages for demonstration.
     for message in consumer:
         data = message.value
+        # Apply transformations.
+        transformed_data = transform_data(data)
+        # Insert the transformed data into Postgres.
         insert_query = "INSERT INTO sensor_data (station, data) VALUES (%s, %s);"
-        cur.execute(insert_query, (data.get('station'), json.dumps(data)))
+        cur.execute(insert_query, (transformed_data.get('station'), json.dumps(transformed_data)))
         conn.commit()
         messages_processed += 1
         if messages_processed >= 5:
@@ -51,19 +78,21 @@ def etl_task():
     cur.close()
     conn.close()
 
-
 default_args = {
     'owner': 'airflow',
-    'depends_on_past': False,
     'start_date': datetime(2023, 1, 1),
+    'depends_on_past': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=1)
 }
 
-dag = DAG('factory_etl', default_args=default_args, schedule_interval=timedelta(minutes=5))
+dag = DAG('factory_etl',
+          default_args=default_args,
+          schedule_interval=timedelta(minutes=5),
+          catchup=False)
 
-etl = PythonOperator(
-    task_id='run_etl',
+etl_operator = PythonOperator(
+    task_id='run_etl_task',
     python_callable=etl_task,
     dag=dag
 )
