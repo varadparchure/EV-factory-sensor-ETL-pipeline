@@ -31,6 +31,8 @@ services:
       POSTGRES_DB: factory_db
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   simulator:
     build:
@@ -41,4 +43,41 @@ services:
       - kafka
     environment:
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+
+  airflow:
+    build:
+      context: ./services/airflow
+      dockerfile: Dockerfile
+    container_name: airflow
+    restart: always
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY="7AZPyRuhG3C6MN5ve-NeZ8zTSq1B75sUmBfpfbYAI94="
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://factory_user:factory_pass@postgres:5432/factory_db
+    volumes:
+      - ./services/airflow/dags:/opt/airflow/dags
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+    command: standalone
+
+  fastapi_app:
+    build:
+      context: ./services/fastapi_app
+      dockerfile: Dockerfile
+    container_name: fastapi_app
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+
+
+volumes:
+  postgres_data:
+
+
+
+
 
