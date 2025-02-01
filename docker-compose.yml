@@ -30,3 +30,16 @@ services:
     ports:
       - "5432:5432"
 
+  simulator:
+    build:
+      context: .
+      dockerfile: services/data_simulator/Dockerfile
+    container_name: simulator
+    depends_on:
+      - kafka
+    # We'll override the default KAFKA_BOOTSTRAP_SERVERS variable
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+    # If we want it always running, do nothing else. 
+    # If we want it to run once and exit, we could do other settings...
+
