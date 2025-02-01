@@ -18,7 +18,9 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
 
   postgres:
     image: postgres:15-alpine
@@ -37,9 +39,6 @@ services:
     container_name: simulator
     depends_on:
       - kafka
-    # We'll override the default KAFKA_BOOTSTRAP_SERVERS variable
     environment:
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
-    # If we want it always running, do nothing else. 
-    # If we want it to run once and exit, we could do other settings...
 
